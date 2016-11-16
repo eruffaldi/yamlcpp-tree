@@ -12,6 +12,8 @@ public:
 	template <class T>
 	bool param(std::string path, T & v, T def);
 
+	bool param(std::string path, YAML::Node & v);
+
 	template <class T>
 	bool param(std::string path, T & v);
 
@@ -33,7 +35,7 @@ YAML::Node ParameterServer::solveparent(std::string path)
 	YAML::Node parent = top;
 	while (std::getline(ss, item, '/')) 
 	{
-		if(c.isMap())
+		if(c.IsMap())
 		{
 			parent = c;
 			c = c[item];
@@ -53,7 +55,7 @@ YAML::Node ParameterServer::solve(std::string path)
 	YAML::Node c = top;
 	while (std::getline(ss, item, '/')) 
 	{
-		if(c.isMap())
+		if(c.IsMap())
 		{
 			c = c[item];
 		}
@@ -69,15 +71,30 @@ template <class T>
 bool ParameterServer::param(std::string path, T & v, T def)
 {
 	YAML::Node s = solve(path);
-	if(!s.IsNull())
+	if(!s)
 	{
 		v = def;
+		return false;
 	}
 	else
 	{
 		v = s.as<T>();
+		return true;
 	}
-	return true;
+}
+
+bool ParameterServer::param(std::string path, YAML::Node & v)
+{
+	YAML::Node s = solve(path);
+	if(s)
+	{
+		v = s;
+		return true;
+	}
+	else
+	{
+		return false;	
+	}
 }
 
 
@@ -85,7 +102,7 @@ template <class T>
 bool ParameterServer::param(std::string path, T & v)
 {
 	YAML::Node s = solve(path);
-	if(!s.isNull())
+	if(!s)
 	{
 		return false;
 	}
@@ -100,17 +117,20 @@ bool ParameterServer::param(std::string path, T & v)
 bool ParameterServer::append(std::string path)
 {
 	YAML::Node q = YAML::LoadFile(path);
-	if(!q.isMap())
+	if(!q.IsMap())
+	{
+		std::cerr << "loaded file is not a map\n";
 		return false;
+	}
 	// q has to be a dictionary
-	if(top.isNull())
+	if(!top)
 	{
 		top = q;
 	}
 	else
 	{
-		for(auto & it: q)
-		{
+		for(auto it: q)
+		{			
 			top[it.first] = it.second;
 		}
 	}
@@ -121,13 +141,13 @@ int main(int argc, char const *argv[])
 {
 	ParameterServer ps;
 	ps.append("config.yaml");
-	ps.append("other.yaml");
+	ps.append("config2.yaml");
 
 	int x = 0;
-	ps.param("ciao",x,10);
+	ps.param("ciao/wow",x,10);
 
 	std::string q;
-	ps.param("name",q,std::string("ciao"));
+	ps.param("ciao2/wow2",q,std::string("ciao"));
 
 	return 0;
 }
