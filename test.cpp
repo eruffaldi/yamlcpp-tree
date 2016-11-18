@@ -17,14 +17,53 @@ public:
 	template <class T>
 	bool param(std::string path, T & v);
 
+	// TODO write
+
 	YAML::Node top;
 
-	bool append(std::string path);
+	// append config
+	bool append(std::string path, std::string prefix = "");
 
 	YAML::Node solve(std::string path);
 
 	YAML::Node solveparent(std::string path);
 
+};
+
+class ParameterSpace
+{
+public:
+	ParameterSpace(ParameterServer & srv, std::string prefix): srv_(srv),prefix_(prefix)
+	{	
+		if(!prefix_.empty() && prefix_[prefix_.size()-1] != '/')
+			prefix_ += '/';
+	}	
+
+	ParameterSpace(ParameterSpace & other, std::string prefix): srv_(other.srv),prefix_(other.prefix + prefix)
+	{	
+		if(!prefix_.empty() && prefix_[prefix_.size()-1] != '/')
+			prefix_ += '/';
+	}	
+
+	template <class T>
+	bool param(std::string path, T & v, T def)
+	{
+		return srv_.param(path[0] == '/' ? path : prefix_ + path,v,def);
+	}
+
+	bool param(std::string path, YAML::Node & v);
+	{
+		return srv_.param(path[0] == '/' ? path : prefix_ + path,v);
+	}
+
+	template <class T>
+	bool param(std::string path, T & v)
+	{
+		return srv_.param(path[0] == '/' ? path : prefix_ + path,v);
+	}
+
+	ParameterServer & srv_;
+	std::string prefix_; // HAS / at the end
 };
 
 YAML::Node ParameterServer::solveparent(std::string path)
@@ -50,7 +89,7 @@ YAML::Node ParameterServer::solveparent(std::string path)
 
 YAML::Node ParameterServer::solve(std::string path)
 {
-	std::stringstream ss(path);
+	std::stringstream ss(path[0] == '/' ? path.substr(1) : path);
 	std::string item;
 	YAML::Node c = top;
 	while (std::getline(ss, item, '/')) 
@@ -70,7 +109,7 @@ YAML::Node ParameterServer::solve(std::string path)
 template <class T>
 bool ParameterServer::param(std::string path, T & v, T def)
 {
-	YAML::Node s = solve(path);
+	YAML::Node s = solve(path[0] == '/' ? path.substr(1) : path);
 	if(!s)
 	{
 		v = def;
@@ -114,13 +153,18 @@ bool ParameterServer::param(std::string path, T & v)
 }
 
 
-bool ParameterServer::append(std::string path)
+bool ParameterServer::append(std::string path, std::string prefix = "")
 {
 	YAML::Node q = YAML::LoadFile(path);
 	if(!q.IsMap())
 	{
 		std::cerr << "loaded file is not a map\n";
 		return false;
+	}
+	YAML::Node s = prefix.empty() ? top : solve(prefix);
+	if(!s)
+	{
+		// create the prefix ... TBD
 	}
 	// q has to be a dictionary
 	if(!top)
@@ -139,13 +183,15 @@ bool ParameterServer::append(std::string path)
 
 int main(int argc, char const *argv[])
 {
-	ParameterServer ps;
-	ps.append("config.yaml");
-	ps.append("config2.yaml");
+	ParameterServer srv;
+	srv.append("config.yaml"); // TODO add prefix
+	srv.append("config2.yaml");
 
 	int x = 0;
-	ps.param("ciao/wow",x,10);
+	ParameterSpace ps(srv,"ciao");
+	ps.param("wow",x,10); // ciao/wow
 
+	ParameterSpace ps(srv,"ciao2");
 	std::string q;
 	ps.param("ciao2/wow2",q,std::string("ciao"));
 
